@@ -14,14 +14,19 @@ module Rack
     @overtime       = 60 # seconds by which to extend MAX_REQUEST_AGE for requests that have a body (and have hence potentially waited long for the body to be received.)
     @timeout        = 15 # seconds
     class << self
-      attr_accessor :timeout, :overtime
+      attr_accessor :timeout, :overtime, :paths_to_ignore
     end
+    self.paths_to_ignore = []
 
     def initialize(app)
       @app = app
     end
 
     def call(env)
+      if env['REQUEST_PATH'] && self.class.paths_to_ignore.any? { |path| path === env['REQUEST_PATH'] }
+        return @app.call(env)
+      end
+
       info          = env[ENV_INFO_KEY] ||= RequestDetails.new
       info.id     ||= env['HTTP_HEROKU_REQUEST_ID'] || env['HTTP_X_REQUEST_ID'] || SecureRandom.hex
       request_start = env['HTTP_X_REQUEST_START'] # unix timestamp in ms
