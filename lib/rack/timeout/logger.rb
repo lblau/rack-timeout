@@ -16,6 +16,7 @@ module Rack
                            completed: INFO,
                            expired:   ERROR,
                            timed_out: ERROR,
+                           ignored:   INFO
                          }
 
 
@@ -64,6 +65,7 @@ module Rack
           s << ' timeout='  << ms(info.timeout)  if info.timeout
           s << ' duration=' << ms(info.duration) if info.duration
           s << ' state='    << info.state.to_s   if info.state
+          s << ' path='     << info.path.to_s    if info.path
           s
         end
       end

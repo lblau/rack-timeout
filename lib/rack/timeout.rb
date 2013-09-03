@@ -7,9 +7,9 @@ module Rack
     class RequestExpiryError  < Error; end
     class RequestTimeoutError < Error; end
 
-    RequestDetails  = Struct.new(:id, :age, :timeout, :duration, :state)
+    RequestDetails  = Struct.new(:id, :age, :timeout, :duration, :state, :path)
     ENV_INFO_KEY    = 'rack-timeout.info'
-    VALID_STATES    = [:ready, :active, :expired, :timed_out, :completed]
+    VALID_STATES    = [:ready, :active, :expired, :timed_out, :completed, :ignored]
     MAX_REQUEST_AGE = 30 # seconds
     @overtime       = 60 # seconds by which to extend MAX_REQUEST_AGE for requests that have a body (and have hence potentially waited long for the body to be received.)
     @timeout        = 15 # seconds
@@ -23,12 +23,15 @@ module Rack
     end
 
     def call(env)
-      if env['REQUEST_PATH'] && self.class.paths_to_ignore.any? { |path| path === env['REQUEST_PATH'] }
+      info          = env[ENV_INFO_KEY] ||= RequestDetails.new
+      info.id     ||= env['HTTP_HEROKU_REQUEST_ID'] || env['HTTP_X_REQUEST_ID'] || SecureRandom.hex
+      info.path     = env['REQUEST_PATH']
+
+      if info.path && self.class.paths_to_ignore.any? { |path| path === info.path }
+        Rack::Timeout._set_state! env, :ignored
         return @app.call(env)
       end
 
-      info          = env[ENV_INFO_KEY] ||= RequestDetails.new
-      info.id     ||= env['HTTP_HEROKU_REQUEST_ID'] || env['HTTP_X_REQUEST_ID'] || SecureRandom.hex
       request_start = env['HTTP_X_REQUEST_START'] # unix timestamp in ms
       request_start = Time.at(request_start.to_f / 1000) if request_start
       info.age      = Time.now - request_start           if request_start
