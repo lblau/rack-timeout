@@ -27,7 +27,7 @@ module Rack
       info.id     ||= env['HTTP_HEROKU_REQUEST_ID'] || env['HTTP_X_REQUEST_ID'] || SecureRandom.hex
       info.path     = env['PATH_INFO']
 
-      if info.path && self.class.paths_to_ignore.any? { |path| path === info.path }
+      if info.path && self.class.paths_to_ignore.any? { |path| info.path.match(path) }
         Rack::Timeout._set_state! env, :ignored
         return @app.call(env)
       end
